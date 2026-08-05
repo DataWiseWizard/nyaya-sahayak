@@ -72,7 +72,6 @@ if "vault_open" not in st.session_state:
     st.session_state.pending_attachment_text = None
     st.session_state.pending_attachment_name = None
     st.session_state.selected_model_path = str(MODEL_PATH)
-    st.session_state.pending_offer_response = None  # Track button clicks for offers
 
 
 def lock_vault():
@@ -351,7 +350,6 @@ else:
                 st.session_state.stream_gen = None
                 st.session_state.stream_text = ""
                 st.session_state.stop_requested = False
-<<<<<<< HEAD
                 # Without this rerun, the script just falls through to the
                 # rest of the page once — the offer-buttons check earlier
                 # in the script already ran for THIS execution and won't
@@ -360,55 +358,9 @@ else:
                 # was the reported bug: buttons only flashing on the next
                 # unrelated interaction instead of appearing right away.
                 st.rerun()
-=======
-                st.session_state.pending_offer_response = None
->>>>>>> 260ae74e9e0f9af06438bee1ff4d560988fdd2b8
             else:
                 time.sleep(0.02)
                 st.rerun()
-
-    # --- Offer-response buttons: if the last message was an offer, show buttons
-    # instead of a text input. This replaces fuzzy text matching with explicit
-    # user intent.
-    if (st.session_state.messages and 
-        st.session_state.messages[-1].get("role") == "assistant" and 
-        st.session_state.messages[-1].get("made_offer") and
-        not st.session_state.stream_active):
-        st.divider()
-        st.markdown("**Would you like me to research similar Supreme Court cases?**")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔍 Search Now", use_container_width=True, key="btn_search_yes"):
-                st.session_state.pending_offer_response = "yes"
-                st.rerun()
-        with col2:
-            if st.button("💬 Keep Talking First", use_container_width=True, key="btn_search_no"):
-                st.session_state.pending_offer_response = "no"
-                st.rerun()
-        
-        # If a button was clicked, process it as a user response
-        if st.session_state.pending_offer_response:
-            response_text = "Yes, please research similar cases." if st.session_state.pending_offer_response == "yes" else "Let's keep talking first."
-            history = list(st.session_state.messages)
-            st.session_state.messages.append({"role": "user", "content": response_text})
-            
-            with st.chat_message("user"):
-                st.markdown(response_text)
-            
-            with st.spinner("Retrieving relevant precedent..." if st.session_state.pending_offer_response == "yes" else "Thinking..."):
-                messages, retrieved = prepare_generation(st.session_state.db_dir, history, response_text, top_k=5)
-            
-            st.session_state.stream_gen = llm.create_chat_completion(
-                messages=messages, max_tokens=MAX_TOKENS, temperature=0.3, stream=True,
-            )
-            st.session_state.stream_text = ""
-            st.session_state.stream_retrieved = retrieved
-            st.session_state.stream_history = history
-            st.session_state.stream_question = response_text
-            st.session_state.stream_active = True
-            st.session_state.stop_requested = False
-            st.session_state.pending_offer_response = None
-            st.rerun()
 
     with st.expander("📷 Attach a photo of a document (optional — OCR reads the text, not the image)"):
         uploaded_image = st.file_uploader(
@@ -442,17 +394,9 @@ else:
                 st.session_state.pending_attachment_name = None
                 st.rerun()
 
-    # Only show the chat input if no offer is pending
-    show_chat_input = not (
-        st.session_state.messages and 
-        st.session_state.messages[-1].get("role") == "assistant" and 
-        st.session_state.messages[-1].get("made_offer") and
-        not st.session_state.stream_active
-    )
-
     question = st.chat_input(
         "Ask about your case, or chat with NyayaSahayak (English or Hinglish)...",
-        disabled=st.session_state.stream_active or not show_chat_input,
+        disabled=st.session_state.stream_active,
     )
     if question and not st.session_state.stream_active:
         # If a document photo is attached, fold its OCR'd text into the
@@ -480,23 +424,7 @@ else:
                 st.markdown(full_question)
 
         with st.spinner("Retrieving relevant precedent..." if len(full_question.split()) > 2 else "Thinking..."):
-<<<<<<< HEAD
             start_generation(llm, full_question, history, retrieval_mode="auto")
-=======
-            messages, retrieved = prepare_generation(st.session_state.db_dir, history, full_question, top_k=5)
-
-        # Kick off streaming: store the generator + context, then rerun so
-        # the "mid-stream" branch above starts pulling tokens from it.
-        st.session_state.stream_gen = llm.create_chat_completion(
-            messages=messages, max_tokens=MAX_TOKENS, temperature=0.3, stream=True,
-        )
-        st.session_state.stream_text = ""
-        st.session_state.stream_retrieved = retrieved
-        st.session_state.stream_history = history
-        st.session_state.stream_question = full_question
-        st.session_state.stream_active = True
-        st.session_state.stop_requested = False
->>>>>>> 260ae74e9e0f9af06438bee1ff4d560988fdd2b8
         st.rerun()
 
     st.caption(

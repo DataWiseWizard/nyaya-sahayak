@@ -124,7 +124,6 @@ SYSTEM_PROMPT = (
     "enough to understand their situation AND you have asked their "
     "permission to research similar precedent AND they agreed. When you "
     "reach that second point — you understand their situation well enough "
-<<<<<<< HEAD
     "to research it — ask permission naturally, IN YOUR OWN WORDS, varying "
     "your phrasing rather than reusing a fixed sentence. For example (vary "
     "these, don't reuse one verbatim): 'Want me to check how courts have "
@@ -134,20 +133,10 @@ SYSTEM_PROMPT = (
     "the very end of your reply, output exactly this marker and nothing "
     "else on that line: " + OFFER_MARKER + " — this is an internal signal, "
     "never mention it or explain it to the user.\n\n"
-=======
-    "to research it — ask permission naturally. For example, you might ask "
-    "if they would like you to research similar Supreme Court rulings. "
-    "Immediately after asking that, on a new line at the very end "
-    "of your reply, output exactly this marker and nothing else on that "
-    "line: " + OFFER_MARKER + " — this is an internal signal, never "
-    "mention it or explain it to the user.\n\n"
-    "CRITICAL — Avoid repetition: Do not re-ask questions the user has "
-    "already answered. Do not repeat a research offer you have already "
-    "made in a previous turn unless the user explicitly asks you to. "
->>>>>>> 260ae74e9e0f9af06438bee1ff4d560988fdd2b8
     "If the user declines your offer, or their reply is unclear/not a "
     "clear yes, do NOT research anyway — keep chatting normally and let "
-    "them know you'll hold off on researching case law until they ask.\n\n"
+    "them know you'll hold off on researching case law until they ask. "
+    "Do not repeat the offer right away.\n\n"
     "Once research does happen (excerpts will be provided to you "
     "separately as 'CASE EXCERPTS'): describe the PATTERN found in the "
     "retrieved excerpts as specifically as possible, e.g. 'in the "
@@ -235,7 +224,6 @@ def should_retrieve(history: list[dict], question: str) -> bool:
     """
     The core retrieval-trigger decision — deliberately flipped from
     "retrieve by default" to "only retrieve when invited to":
-<<<<<<< HEAD
       1. An explicit research request ALWAYS triggers retrieval, checked
          FIRST — regardless of whether there's a pending offer. (Bug fix:
          this used to be checked only when there was NO pending offer,
@@ -254,18 +242,6 @@ def should_retrieve(history: list[dict], question: str) -> bool:
     reliability — this function's pending-offer branch mainly matters for
     the CLI path, which has no buttons to click.
     """
-=======
-      1. Retrieval fires if the user explicitly asked for case research
-         in this message (e.g. "search the database", "find similar cases").
-      2. If the assistant's last turn made a research offer (flagged via
-         OFFER_MARKER at generation time — see finalize_generation),
-         retrieval ALSO fires if this reply reads as a clear yes.
-      3. Casual small talk never triggers retrieval.
-    """
-    if is_casual_message(question):
-        return False
-
->>>>>>> 260ae74e9e0f9af06438bee1ff4d560988fdd2b8
     if is_explicit_research_request(question):
         return True
 
@@ -274,7 +250,10 @@ def should_retrieve(history: list[dict], question: str) -> bool:
     if pending_offer:
         return is_affirmative_reply(question)
 
-    return False
+    if is_casual_message(question):
+        return False
+
+    return is_explicit_research_request(question)
 
 
 def build_retrieval_query(history: list[dict], question: str,
