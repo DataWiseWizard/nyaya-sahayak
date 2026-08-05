@@ -1,0 +1,11 @@
+venv/
+
+vault/
+
+models/
+
+.vscode/
+
+.vault_session/
+
+data/
