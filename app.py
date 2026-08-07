@@ -1,4 +1,6 @@
 """
+app.py
+------
 Streamlit chat UI for NyayaSahayak.
 
 Key design point: this is a long-lived process, so we do NOT use the
@@ -435,3 +437,4 @@ else:
         "in similar precedent — it does not provide legal advice and cannot "
         "predict your specific outcome. Consult a qualified lawyer for your situation."
     )
+    

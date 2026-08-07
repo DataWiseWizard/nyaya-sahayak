@@ -1,4 +1,6 @@
 """
+model_loader.py
+----------------
 Loads a local GGUF LLM and uses it to answer questions grounded in retrieved
 Indian Supreme Court precedent. The model always retrieves relevant case
 excerpts for every substantive question (except trivial small‑talk), so it
