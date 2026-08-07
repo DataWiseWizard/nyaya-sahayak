@@ -31,6 +31,7 @@ import secrets
 import shutil
 import signal
 import sys
+import json
 import zipfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -259,3 +260,54 @@ def unlocked_vault(vault_encrypted_path: Path, salt_path: Path,
         yield tmp_decrypted_dir
     finally:
         close_fn()
+        
+
+def save_encrypted_chat(chat_list: list, passphrase: str, file_path: str = "data/chat_history.aes"):
+    """Encrypts the chat history list into an AES-256 file."""
+    if not chat_list:
+        return
+        
+    salt = os.urandom(16)
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=600_000, backend=default_backend())
+    key = kdf.derive(passphrase.encode())
+    iv = os.urandom(16)
+    
+    padder = padding.PKCS7(128).padder()
+    padded_data = padder.update(json.dumps(chat_list).encode()) + padder.finalize()
+    
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
+    
+    # We save the salt and IV at the top of the file so we can decrypt it later
+    with open(file_path, "wb") as f:
+        f.write(salt + iv + encrypted_data)
+
+def load_encrypted_chat(passphrase: str, file_path: str = "data/chat_history.aes") -> list:
+    """Decrypts the AES-256 file back into the chat history list."""
+    if not Path(file_path).exists():
+        return []
+    
+    with open(file_path, "rb") as f:
+        data = f.read()
+    
+    if len(data) < 32: 
+        return []
+        
+    salt, iv, encrypted_data = data[:16], data[16:32], data[32:]
+    
+    try:
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=600_000, backend=default_backend())
+        key = kdf.derive(passphrase.encode())
+        
+        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+        decryptor = cipher.decryptor()
+        decrypted_padded = decryptor.update(encrypted_data) + decryptor.finalize()
+        
+        unpadder = padding.PKCS7(128).unpadder()
+        decrypted_data = unpadder.update(decrypted_padded) + unpadder.finalize()
+        
+        return json.loads(decrypted_data.decode())
+    except Exception:
+        # If the password is wrong or file is corrupted, return an empty history
+        return []

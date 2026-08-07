@@ -461,6 +461,40 @@ def load_model(model_path: Path = MODEL_PATH, n_ctx: int = 8192,
     return llm
 
 
+def _safe_history_window(history: list[dict], max_len: int = 6) -> list[dict]:
+    """
+    Returns a suffix of `history` that always starts on a 'user' turn AND
+    ends on an 'assistant' turn — safe to follow with our own appended
+    'user' turn without ever producing two consecutive same-role messages.
+
+    Why this matters: conversation history strictly alternates
+    user/assistant/user/assistant/... (the first message is always the
+    user's). A naive fixed-size slice like history[-6:] can land on either
+    parity depending on the total conversation length — sometimes it
+    starts with 'assistant' instead of 'user'. Many chat templates
+    (including the one that surfaced this as a real crash: "After the
+    optional system message, conversation roles must alternate
+    user/assistant/...") strictly reject that. Since the very first
+    message in the full history is always 'user', 'user' turns always sit
+    at even indices — so we round the slice start down to an even index.
+
+    Separately: if `history` itself ends with a dangling, unanswered
+    'user' message (a real recovery-state possibility — e.g. a previous
+    request crashed after recording the user's message but before an
+    assistant reply was appended), the window would end in 'user', and
+    build_messages() always appends its OWN final 'user' turn afterward —
+    producing two consecutive 'user' messages. So we also trim a trailing
+    non-'assistant' entry.
+    """
+    start = max(0, len(history) - max_len)
+    if start % 2 != 0:
+        start -= 1  # extend the window back by one rather than starting on 'assistant'
+    window = history[start:]
+    if window and window[-1].get("role") != "assistant":
+        window = window[:-1]
+    return window
+
+
 def build_messages(history: list[dict], question: str, retrieved: dict | None) -> list[dict]:
     """
     Builds a model-AGNOSTIC list of {"role", "content"} messages (like the
@@ -476,8 +510,10 @@ def build_messages(history: list[dict], question: str, retrieved: dict | None) -
     """
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    # Cap history length to keep the prompt within the model's context window
-    for turn in history[-6:]:
+    # Cap history length to keep the prompt within the model's context
+    # window — using an alignment-safe window, not a naive fixed slice
+    # (see _safe_history_window's docstring for why that matters).
+    for turn in _safe_history_window(history):
         messages.append({"role": turn["role"], "content": turn["content"]})
 
     if retrieved and retrieved["documents"][0]:
