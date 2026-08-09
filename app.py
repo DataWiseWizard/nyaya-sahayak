@@ -23,8 +23,6 @@ import sys
 from pathlib import Path
 
 import streamlit as st
-import pandas as pd
-
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 
 import time  # noqa: E402
@@ -48,29 +46,47 @@ st.set_page_config(page_title="NyayaSahayak", page_icon="⚖️", layout="wide")
 # --- Custom CSS for a cleaner UI ----------------------------------------------
 st.markdown("""
 <style>
-    .main .block-container {
-        padding-top: 1rem;
-        padding-bottom: 0rem;
+    div[data-testid="stFileUploader"] {
+        background-color: #2b2b36 !important;
+        border-radius: 28px !important;
+        cursor: pointer !important;
+        transition: background-color 0.2s ease !important;
+        height: 56px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+        margin-bottom: 0 !important;
+        overflow: hidden !important;
     }
-    .stChatInput {
-        bottom: 0;
+
+    div[data-testid="stFileUploader"]:hover {
+        background-color: #3a3a46 !important;
     }
-    .upload-icon {
-        display: inline-block;
-        font-size: 1.5rem;
-        cursor: pointer;
-        margin-right: 0.5rem;
+
+    div[data-testid="stFileUploader"] section {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-height: 0 !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
     }
-    .stButton button {
-        width: 100%;
+
+    div[data-testid="stFileUploader"] section button {
+        background: transparent !important;
+        border: none !important;
+        color: inherit !important;
     }
-    .source-full-text {
-        background-color: #f0f2f6;
-        padding: 0.5rem;
-        border-radius: 0.5rem;
-        margin-top: 0.5rem;
-        font-size: 0.85rem;
-        white-space: pre-wrap;
+
+    div[data-testid="stFileUploaderDropzoneInstructions"] {
+        display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -80,25 +96,6 @@ st.markdown("""
 @st.cache_resource(show_spinner="Loading local LLM (first load can take ~30s)...")
 def get_llm(model_path_str: str):
     return load_model(Path(model_path_str))
-
-
-@st.cache_resource(show_spinner="Loading full judgment texts...")
-def load_full_text_map() -> dict[tuple[str, int], str]:
-    """
-    Loads the cleaned judgments parquet and builds a mapping from
-    (case_name, year) to full text.
-    """
-    data_path = Path("data/processed/judgments_clean.parquet")
-    if not data_path.exists():
-        return {}
-    df = pd.read_parquet(data_path)
-    # Some rows may have duplicate case_name/year; take first.
-    mapping = {}
-    for _, row in df.iterrows():
-        key = (row["case_name"], row["_year"])
-        if key not in mapping:
-            mapping[key] = row["clean_text"]
-    return mapping
 
 
 # --- Session state init --------------------------------------------------------
@@ -225,38 +222,50 @@ st.caption(
 
 
 def render_message(content: str, citations: list, truncated: bool = False,
-                    unverified_citations: list | None = None,
-                    full_text_map: dict | None = None):
-    """Renders a message with citations and optional full-text expanders."""
+                    unverified_citations: list | None = None):
+    """Renders a message with citations and links to full-text pages."""
     st.markdown(content)
     if truncated:
-        st.warning(
-            "⚠️ This response hit the length limit and may be cut off mid-sentence. "
-            "Ask a follow-up like \"continue\" if you'd like the rest."
-        )
+        st.warning("⚠️ This response hit the length limit and may be cut off...")
     if unverified_citations:
         st.error(
-            "⚠️ **Unverified citation warning:** this response mentions "
-            + ", ".join(f'"{c}"' for c in unverified_citations)
-            + " — this doesn't match anything in the retrieved sources or "
-            "what you provided. Treat this specific reference with caution "
-            "and verify it independently before relying on it."
+            "⚠️ **Unverified citation warning:** ..."
         )
     if citations:
         with st.expander(f"📚 {len(citations)} source(s)"):
-            for c in citations:
+            for i, c in enumerate(citations):
                 st.markdown(f"**{c['case_name']} ({c['year']})** — relevance {c['score']:.2f}")
                 st.caption(c["excerpt"])
-                # Show full text if available
-                if full_text_map:
-                    key = (c['case_name'], c['year'])
-                    full_text = full_text_map.get(key)
-                    if full_text:
-                        with st.expander("📄 Read full judgment"):
-                            st.markdown(f'<div class="source-full-text">{full_text}</div>',
-                                        unsafe_allow_html=True)
-                    else:
-                        st.caption("Full text not available for this case.")
+
+                source_url = c.get("source_url")
+                source_file = c.get("source_file")
+                if source_url:
+                    # Preferred: an Indian Kanoon URL that was embedded in
+                    # the judgment text itself at ingestion time — opens
+                    # the real full judgment on an actual legal database,
+                    # no custom viewer needed.
+                    st.markdown(f"📄 [Read full judgment]({source_url})")
+                elif source_file and Path(source_file).exists():
+                    # Fallback: no URL found in this judgment's text, but
+                    # we have the local source PDF — offer it as a direct
+                    # download (a plain file:// link doesn't work reliably
+                    # from a browser-served Streamlit app).
+                    try:
+                        with open(source_file, "rb") as f:
+                            st.download_button(
+                                "📄 Open full judgment (PDF)",
+                                data=f.read(),
+                                file_name=Path(source_file).name,
+                                mime="application/pdf",
+                                key=f"dl_{i}_{Path(source_file).name}",
+                            )
+                    except OSError:
+                        st.caption("_(source file couldn't be read)_")
+                else:
+                    st.caption(
+                        "_(no link available for this citation — re-run "
+                        "ingestion to enable links/downloads for older data)_"
+                    )
 
 
 def start_generation(llm, display_text: str, history: list, question: str,
@@ -289,9 +298,6 @@ else:
     # Load the model once the vault is open
     llm = get_llm(st.session_state.selected_model_path)
 
-    # Load full-text map for source display
-    full_text_map = load_full_text_map()
-
     # Render all already‑finalized messages
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
@@ -299,7 +305,6 @@ else:
                 render_message(
                     msg["content"], msg.get("citations", []),
                     msg.get("truncated", False), msg.get("unverified_citations", []),
-                    full_text_map=full_text_map,
                 )
             elif len(msg["content"]) > 400:
                 with st.expander("📷 Attached document + message", expanded=False):
@@ -344,7 +349,6 @@ else:
                 render_message(
                     result["answer"], result["citations"],
                     result["truncated"], result["unverified_citations"],
-                    full_text_map=full_text_map,
                 )
                 st.session_state.messages.append({
                     "role": "assistant",
@@ -367,27 +371,32 @@ else:
     # above the chat input. The chat input itself stays as a separate widget.
     # If streaming, we show a stop button; otherwise we show the uploader.
 
-    col1, col2 = st.columns([1, 4])
+    col1, col2 = st.columns([1, 13], vertical_alignment="bottom")
     with col1:
-        # File uploader as an icon (styled)
         uploaded_image = st.file_uploader(
-            "📷",  # Emoji as label
+            "📷",
             type=["png", "jpg", "jpeg"],
             key="ocr_uploader",
             label_visibility="collapsed",
             accept_multiple_files=False,
         )
         if uploaded_image is not None:
-            if st.session_state.pending_attachment_name != uploaded_image.name:
-                with st.spinner("Reading text from the image..."):
-                    try:
-                        extracted = extract_text_from_image(uploaded_image.getvalue())
-                        st.session_state.pending_attachment_text = extracted
-                        st.session_state.pending_attachment_name = uploaded_image.name
-                    except OCRNotAvailableError as e:
-                        st.error(str(e))
-                    except ValueError as e:
-                        st.error(f"Couldn't process this file: {e}")
+            max_size = 10 * 1024 * 1024  # 10 MB
+            if uploaded_image.size > max_size:
+                st.error(f"File too large ({uploaded_image.size / 1024 / 1024:.1f} MB). Please upload an image smaller than 10 MB.")
+                st.session_state.pending_attachment_text = None
+                st.session_state.pending_attachment_name = None
+            else:
+                if st.session_state.pending_attachment_name != uploaded_image.name:
+                    with st.spinner("Reading text from the image..."):
+                        try:
+                            extracted = extract_text_from_image(uploaded_image.getvalue())
+                            st.session_state.pending_attachment_text = extracted
+                            st.session_state.pending_attachment_name = uploaded_image.name
+                        except OCRNotAvailableError as e:
+                            st.error(str(e))
+                        except ValueError as e:
+                            st.error(f"Couldn't process this file: {e}")
 
         # Show attachment preview if present
         if st.session_state.pending_attachment_text:
@@ -401,7 +410,7 @@ else:
         # If streaming, show a Stop button; else show the chat input.
         if st.session_state.stream_active:
             st.button("⏹ Stop generating", type="primary", use_container_width=True,
-                      on_click=lambda: setattr(st.session_state, 'stop_requested', True))
+                    on_click=lambda: setattr(st.session_state, 'stop_requested', True))
         else:
             question = st.chat_input(
                 "Ask about your case, or chat with NyayaSahayak (English or Hinglish)...",
@@ -437,4 +446,3 @@ else:
         "in similar precedent — it does not provide legal advice and cannot "
         "predict your specific outcome. Consult a qualified lawyer for your situation."
     )
-    

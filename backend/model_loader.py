@@ -325,6 +325,8 @@ def build_citations_list(retrieved: dict | None) -> list[dict]:
             "year": meta.get("year"),
             "score": score,
             "excerpt": doc[:400] + ("..." if len(doc) > 400 else ""),
+            "source_file": meta.get("source_file"),
+            "source_url": meta.get("source_url"),
         }
         for doc, meta, score in zip(
             retrieved["documents"][0], retrieved["metadatas"][0], retrieved["scores"][0]

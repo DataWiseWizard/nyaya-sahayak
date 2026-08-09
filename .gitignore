@@ -9,3 +9,5 @@ models/
 .vault_session/
 
 data/
+
+__pycache__

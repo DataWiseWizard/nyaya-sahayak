@@ -22,6 +22,8 @@ import argparse
 import gc
 from pathlib import Path
 
+import re
+
 import chromadb
 import pandas as pd
 from chromadb.utils import embedding_functions
@@ -31,7 +33,7 @@ try:
     from langchain_text_splitters import RecursiveCharacterTextSplitter
 except ImportError:
     # Older langchain (<1.0) keeps it under langchain.text_splitter
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from encryptor import unlocked_vault
 
@@ -66,6 +68,29 @@ def _clear_chromadb_cache() -> None:
         pass
 
 
+# Many judgment PDFs in this dataset were originally sourced from Indian
+# Kanoon, and have a URL like "Indian Kanoon - http://indiankanoon.org/doc/
+# 108233196/" stamped directly into the document text (visible in the OCR'd/
+# extracted text itself). When present, this gives us a free, reliable link
+# to the full judgment on a real legal database — far more robust than
+# trying to reconstruct a full-text viewer ourselves.
+_INDIANKANOON_URL_RE = re.compile(
+    r"https?://(?:www\.)?indiankanoon\.org/doc/(\d+)/?", re.IGNORECASE
+)
+
+
+def extract_source_url(text: str) -> str | None:
+    """Returns a normalized https:// Indian Kanoon URL if one is embedded
+    in the judgment text, else None. Best-effort — not every judgment's
+    source PDF has this stamped in, depending on where it was scraped from."""
+    if not isinstance(text, str):
+        return None
+    match = _INDIANKANOON_URL_RE.search(text)
+    if not match:
+        return None
+    return f"https://indiankanoon.org/doc/{match.group(1)}/"
+
+
 def build_chunks(df: pd.DataFrame) -> list[dict]:
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000, chunk_overlap=150,
@@ -75,6 +100,8 @@ def build_chunks(df: pd.DataFrame) -> list[dict]:
     for _, row in df.iterrows():
         case_name = row.get("case_name") or row.get("title") or "Unknown Case"
         year = row.get("_year")
+        source_file = row.get("source_file")
+        source_url = extract_source_url(row.get("clean_text", ""))
         text_chunks = splitter.split_text(row["clean_text"])
         for i, chunk in enumerate(text_chunks):
             chunks.append({
@@ -84,6 +111,11 @@ def build_chunks(df: pd.DataFrame) -> list[dict]:
                     "case_name": str(case_name),
                     "year": int(year) if pd.notna(year) else None,
                     "chunk_index": i,
+                    # ChromaDB metadata values must be str/int/float/bool —
+                    # str() + the pd.notna guard handle NaN/None from older
+                    # parquet files that predate these fields.
+                    "source_file": str(source_file) if pd.notna(source_file) else "",
+                    "source_url": source_url or "",
                 },
             })
     return chunks
@@ -98,7 +130,7 @@ def ingest(passphrase: str):
     print(f"Loaded {len(df)} judgments. Chunking...")
     chunks = build_chunks(df)
     print(f"Produced {len(chunks)} chunks. Embedding + indexing "
-        f"(this decrypts the vault for this session only)...")
+          f"(this decrypts the vault for this session only)...")
 
     embed_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name=EMBED_MODEL_NAME
@@ -151,8 +183,8 @@ def get_embed_fn():
 
 
 def query_open_db(db_dir: Path, question: str, top_k: int = 5,
-                use_reranker: bool = True, candidate_pool: int = 20,
-                verbose: bool = False):
+                   use_reranker: bool = True, candidate_pool: int = 20,
+                   verbose: bool = False):
     """
     Runs retrieval (+ optional re-ranking) against an ALREADY-DECRYPTED db
     directory. Use this when the vault is already open for a long-lived
@@ -199,7 +231,7 @@ def query_open_db(db_dir: Path, question: str, top_k: int = 5,
 
 
 def query(question: str, passphrase: str, top_k: int = 5, use_reranker: bool = True,
-        candidate_pool: int = 20):
+          candidate_pool: int = 20):
     """
     One-off CLI-style query: opens the vault, runs retrieval, re-locks the
     vault, and prints results. For a long-lived interactive session (many
@@ -208,7 +240,7 @@ def query(question: str, passphrase: str, top_k: int = 5, use_reranker: bool = T
     """
     with unlocked_vault(VAULT_ENCRYPTED, SALT_PATH, passphrase, TMP_DECRYPTED_DIR) as db_dir:
         return query_open_db(db_dir, question, top_k, use_reranker, candidate_pool,
-                            verbose=True)
+                              verbose=True)
 
 
 if __name__ == "__main__":
@@ -223,7 +255,7 @@ if __name__ == "__main__":
     p_query.add_argument("--passphrase", required=True)
     p_query.add_argument("--top-k", type=int, default=5)
     p_query.add_argument("--no-rerank", action="store_true",
-                        help="Skip cross-encoder re-ranking (faster, less accurate)")
+                          help="Skip cross-encoder re-ranking (faster, less accurate)")
 
     args = parser.parse_args()
     if args.cmd == "ingest":
