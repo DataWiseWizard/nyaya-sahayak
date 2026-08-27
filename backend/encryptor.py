@@ -220,7 +220,7 @@ def open_vault(vault_encrypted_path: Path, salt_path: Path,
     # signal.signal() only works when called from the interpreter's main
     # thread — fine for a plain CLI script, but Streamlit (and some other
     # frameworks) run the app in a worker thread, where this raises
-    # ValueError. In that case we just skip SIGINT/SIGTERM handling and
+    # ValueError. In that case I'll just skip SIGINT/SIGTERM handling and
     # rely on atexit alone for crash safety — atexit still fires on normal
     # interpreter shutdown either way.
     prev_sigint = prev_sigterm = None

@@ -1,6 +1,4 @@
 """
-clean_dataset.py
-----------------
 The Kaggle "Indian Supreme Court Judgments" dataset (this variant) is NOT a
 single CSV — it's a folder of PDFs organized by year:
 
@@ -44,9 +42,7 @@ FILENAME_RE = re.compile(
 
 
 def parse_filename(stem: str) -> dict:
-    """Extracts case name + date from the filename stem. Falls back
-    gracefully (year=None) if a file doesn't match the expected pattern —
-    a handful of odd filenames are normal in scraped datasets."""
+    "Extracts case name + date from the filename stem."
     m = FILENAME_RE.match(stem)
     if not m:
         return {"case_name": stem.replace("_", " "), "date": None, "year": None}
@@ -83,7 +79,7 @@ def extract_pdf_text(pdf_path: Path) -> str | None:
         reader = PdfReader(str(pdf_path))
         pages = [page.extract_text() or "" for page in reader.pages]
         return "\n".join(pages)
-    except Exception as e:  # noqa: BLE001 - deliberately broad, see docstring
+    except Exception as e: 
         print(f"  [WARN] Failed to read {pdf_path.name}: {e}")
         return None
 
@@ -126,7 +122,6 @@ def main():
     pdf_paths = []
     for yf in year_folders:
         pdf_paths.extend(sorted(yf.glob("*.PDF")) + sorted(yf.glob("*.pdf")))
-    # de-dupe in case both globs matched the same files on a case-insensitive FS
     pdf_paths = sorted(set(pdf_paths))
 
     if args.limit:
@@ -143,11 +138,11 @@ def main():
             continue
         clean_text = clean_judgment_text(raw_text)
         if len(clean_text) < 200:
-            continue  # likely a scan-only/blank PDF, skip
+            continue
         rows.append({
             "case_name": meta["case_name"],
             "date": meta["date"],
-            "_year": meta["year"] or int(pdf_path.parent.name),  # folder name as fallback
+            "_year": meta["year"] or int(pdf_path.parent.name),
             "source_file": str(pdf_path),
             "clean_text": clean_text,
         })

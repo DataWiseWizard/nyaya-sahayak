@@ -1,6 +1,4 @@
 """
-rag_pipeline.py
-----------------
 Loads the cleaned judgments parquet, chunks each judgment, embeds chunks
 with a multilingual sentence-transformer (English + Hinglish support), and
 writes them into a ChromaDB collection. The DB directory is only ever
@@ -8,12 +6,12 @@ touched in decrypted form inside `unlocked_vault()`, so on-disk it stays
 AES-256 encrypted between sessions.
 
 Run once to build the index:
-    python backend/rag_pipeline.py ingest --passphrase "correct-horse-battery"
+    python backend/rag_pipeline.py ingest --passphrase "your-passphrase"
 
 Then query:
     python backend/rag_pipeline.py query "What is the test laid down in
-      Kesavananda Bharati for the basic structure doctrine?" \
-      --passphrase "correct-horse-battery"
+        Kesavananda Bharati for the basic structure doctrine?" \
+        --passphrase "correct-horse-battery"
 """
 
 from __future__ import annotations
@@ -52,14 +50,14 @@ COLLECTION_NAME = "sc_judgments"
 def _clear_chromadb_cache() -> None:
     """
     ChromaDB caches its System instance at the class level, keyed by path,
-    independent of any client/collection object we hold locally. That cache
-    keeps the underlying sqlite/index file handles open even after we `del`
+    independent of any client/collection object I hold locally. That cache
+    keeps the underlying sqlite/index file handles open even after I `del`
     our own references — which is what caused files in .vault_session to
     stay locked and unwipeable. This clears that internal cache so the
     handles actually get released.
 
     Wrapped defensively since this is a semi-internal API that could shift
-    between chromadb versions — if it's missing, we just skip it rather
+    between chromadb versions — if it's missing, I'll just skip it rather
     than crash (the retry logic in secure_delete still provides a fallback).
     """
     try:
@@ -160,7 +158,7 @@ def ingest(passphrase: str):
         # This alone isn't always enough: ChromaDB also keeps its own
         # internal class-level cache (SharedSystemClient) that holds a
         # reference to the underlying system/connection keyed by path,
-        # independent of our local variables — so we clear that too.
+        # independent of our local variables — so I'll clear that too.
         del collection, client
         _clear_chromadb_cache()
         gc.collect()
@@ -183,8 +181,8 @@ def get_embed_fn():
 
 
 def query_open_db(db_dir: Path, question: str, top_k: int = 5,
-                   use_reranker: bool = True, candidate_pool: int = 20,
-                   verbose: bool = False):
+                use_reranker: bool = True, candidate_pool: int = 20,
+                verbose: bool = False):
     """
     Runs retrieval (+ optional re-ranking) against an ALREADY-DECRYPTED db
     directory. Use this when the vault is already open for a long-lived
@@ -231,16 +229,10 @@ def query_open_db(db_dir: Path, question: str, top_k: int = 5,
 
 
 def query(question: str, passphrase: str, top_k: int = 5, use_reranker: bool = True,
-          candidate_pool: int = 20):
-    """
-    One-off CLI-style query: opens the vault, runs retrieval, re-locks the
-    vault, and prints results. For a long-lived interactive session (many
-    questions in a row), use encryptor.open_vault() once + query_open_db()
-    per question instead — see app.py for that pattern.
-    """
+        candidate_pool: int = 20):
     with unlocked_vault(VAULT_ENCRYPTED, SALT_PATH, passphrase, TMP_DECRYPTED_DIR) as db_dir:
         return query_open_db(db_dir, question, top_k, use_reranker, candidate_pool,
-                              verbose=True)
+                            verbose=True)
 
 
 if __name__ == "__main__":
@@ -255,7 +247,7 @@ if __name__ == "__main__":
     p_query.add_argument("--passphrase", required=True)
     p_query.add_argument("--top-k", type=int, default=5)
     p_query.add_argument("--no-rerank", action="store_true",
-                          help="Skip cross-encoder re-ranking (faster, less accurate)")
+                        help="Skip cross-encoder re-ranking (faster, less accurate)")
 
     args = parser.parse_args()
     if args.cmd == "ingest":

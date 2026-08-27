@@ -118,7 +118,7 @@ def should_retrieve(question: str) -> bool:
 
 
 def build_retrieval_query(history: list[dict], question: str,
-                           max_prior_turns: int = 2) -> str:
+                        max_prior_turns: int = 2) -> str:
     """
     Combines the current question with the last few user turns for
     retrieval, so context from earlier messages is included.
@@ -201,8 +201,8 @@ def _significant_words(text: str) -> set[str]:
 
 
 def _verify_citations(answer: str, retrieved: dict | None,
-                       history: list[dict] | None = None,
-                       question: str = "") -> list[str]:
+                    history: list[dict] | None = None,
+                    question: str = "") -> list[str]:
     legitimate_word_sets = []
     if retrieved and retrieved["documents"][0]:
         legitimate_word_sets += [
@@ -335,7 +335,7 @@ def build_citations_list(retrieved: dict | None) -> list[dict]:
 
 
 def finalize_generation(answer: str, retrieved: dict | None, history: list[dict],
-                         question: str, truncated: bool) -> dict:
+                        question: str, truncated: bool) -> dict:
     """
     Returns the final answer, citations, truncation flag, and unverified
     citation warnings. No made_offer flag anymore.
@@ -350,8 +350,8 @@ def finalize_generation(answer: str, retrieved: dict | None, history: list[dict]
 
 
 def answer_question(llm: Llama, question: str, passphrase: str,
-                     history: list[dict] | None = None,
-                     top_k: int = 5, max_tokens: int = 1536) -> str:
+                    history: list[dict] | None = None,
+                    top_k: int = 5, max_tokens: int = 1536) -> str:
     """One‑off CLI call."""
     history = history or []
     messages, retrieved = prepare_generation(None, history, question, top_k, passphrase)
@@ -362,8 +362,8 @@ def answer_question(llm: Llama, question: str, passphrase: str,
 
 
 def answer_question_open_db(llm: Llama, db_dir: Path, history: list[dict],
-                             question: str, top_k: int = 5,
-                             max_tokens: int = 1536) -> dict:
+                            question: str, top_k: int = 5,
+                            max_tokens: int = 1536) -> dict:
     """Fast path for already‑decrypted vault."""
     messages, retrieved = prepare_generation(db_dir, history, question, top_k)
     output = llm.create_chat_completion(messages=messages, max_tokens=max_tokens, temperature=0.3)

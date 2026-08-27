@@ -3,7 +3,7 @@ app.py
 ------
 Streamlit chat UI for NyayaSahayak.
 
-Key design point: this is a long-lived process, so we do NOT use the
+Key design point: this is a long-lived process, so I did NOT use the
 one-shot `unlocked_vault()` context manager. Instead:
 
   1. On passphrase submit -> encryptor.open_vault() ONCE, keep the
@@ -185,7 +185,7 @@ with st.sidebar:
                 st.warning("Enter a passphrase first.")
             else:
                 with st.spinner("Decrypting vault (this reads the whole "
-                                 "store once, may take a moment)..."):
+                                "store once, may take a moment)..."):
                     try:
                         db_dir, close_fn = open_vault(
                             VAULT_ENCRYPTED, SALT_PATH, passphrase, TMP_DECRYPTED_DIR
@@ -247,7 +247,7 @@ def render_message(content: str, citations: list, truncated: bool = False,
                     st.markdown(f"📄 [Read full judgment]({source_url})")
                 elif source_file and Path(source_file).exists():
                     # Fallback: no URL found in this judgment's text, but
-                    # we have the local source PDF — offer it as a direct
+                    # I have the local source PDF — offer it as a direct
                     # download (a plain file:// link doesn't work reliably
                     # from a browser-served Streamlit app).
                     try:
@@ -269,7 +269,7 @@ def render_message(content: str, citations: list, truncated: bool = False,
 
 
 def start_generation(llm, display_text: str, history: list, question: str,
-                      top_k: int = 5):
+                    top_k: int = 5):
     """
     Shared kickoff for both the chat_input path. Always retrieves (unless
     casual, which is handled inside prepare_generation). Appends the user
@@ -367,9 +367,9 @@ else:
                 st.rerun()
 
     # --- Input area: uploader + chat input + stop button ------------------------
-    # We'll use columns to place upload icon and a stop button (when streaming)
+    # I used columns to place upload icon and a stop button (when streaming)
     # above the chat input. The chat input itself stays as a separate widget.
-    # If streaming, we show a stop button; otherwise we show the uploader.
+    # If streaming, I'll show a stop button; otherwise I'll show the uploader.
 
     col1, col2 = st.columns([1, 13], vertical_alignment="bottom")
     with col1:
