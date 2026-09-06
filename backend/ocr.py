@@ -1,6 +1,4 @@
 """
-ocr.py
-------
 Extracts text from an uploaded photo of a document (e.g. a scanned notice,
 court order, or judgment page) using Tesseract OCR, so that content can be
 fed into the same text-based chat/RAG pipeline as a typed question.
@@ -13,11 +11,11 @@ model, which is a much heavier addition for a narrower use case here.
 
 Requires the Tesseract OCR binary to be installed separately — pip alone
 is not enough, pytesseract is just a Python wrapper around the binary:
-  Windows: install from https://github.com/UB-Mannheim/tesseract/wiki
+    Windows: install from https://github.com/UB-Mannheim/tesseract/wiki
     If it's not automatically on PATH afterwards, set the TESSERACT_CMD
     environment variable to the full path of tesseract.exe.
-  Mac: brew install tesseract
-  Linux: sudo apt install tesseract-ocr
+    Mac: brew install tesseract
+    Linux: sudo apt install tesseract-ocr
 """
 
 from __future__ import annotations

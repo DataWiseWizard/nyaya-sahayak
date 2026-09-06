@@ -1,0 +1,262 @@
+{
+  "metrics": {
+    "total_queries": 25,
+    "recall_at_5": 76.0,
+    "recall_at_10": 88.0,
+    "recall_at_20": 92.0,
+    "mrr": 0.686,
+    "avg_latency_seconds": 2.57
+  },
+  "results": [
+    {
+      "query": "validity of preventive detention under Article 21 and Article 22 of the Constitution of India",
+      "expected_case": "A.K. Gopalan vs The State of Madras",
+      "category": "constitutional_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 25.942
+    },
+    {
+      "query": "Hindu law exclusion from inheritance on ground of lunacy existing when succession opened",
+      "expected_case": "R. Muthammal vs Sri Subramaniaswami",
+      "category": "hindu_law",
+      "hit_at_5": false,
+      "hit_at_10": false,
+      "hit_at_20": false,
+      "rank_of_hit": -1,
+      "retrieval_time": 4.546
+    },
+    {
+      "query": "kidnapping for ransom recovery of dead body circumstantial evidence conviction under Section 302 IPC",
+      "expected_case": "A.N. Venkatesh vs State of Karnataka",
+      "category": "criminal_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 3.402
+    },
+    {
+      "query": "scope of Article 19 freedom of speech and expression reasonable restrictions",
+      "expected_case": "Romesh Thappar vs State of Madras",
+      "category": "constitutional_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.709
+    },
+    {
+      "query": "right to life includes right to livelihood Article 21",
+      "expected_case": "Olga Tellis vs Bombay Municipal Corporation",
+      "category": "constitutional_law",
+      "hit_at_5": false,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 8,
+      "retrieval_time": 1.797
+    },
+    {
+      "query": "Section 498A IPC cruelty to woman by husband or relative",
+      "expected_case": "Sushil Kumar Sharma vs Union of India",
+      "category": "criminal_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 5,
+      "retrieval_time": 1.231
+    },
+    {
+      "query": "anticipatory bail Section 438 CrPC conditions and limitations",
+      "expected_case": "Gurbaksh Singh Sibbia vs State of Punjab",
+      "category": "criminal_procedure",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.582
+    },
+    {
+      "query": "death sentence rarest of rare doctrine Section 302 IPC",
+      "expected_case": "Bachan Singh vs State of Punjab",
+      "category": "criminal_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.441
+    },
+    {
+      "query": "maneka gandhi passport impounding right to travel abroad Article 21",
+      "expected_case": "Maneka Gandhi vs Union of India",
+      "category": "constitutional_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.086
+    },
+    {
+      "query": "Section 138 Negotiable Instruments Act dishonour of cheque",
+      "expected_case": "Dashrath Rupsing Rathod vs State of Maharashtra",
+      "category": "commercial_law",
+      "hit_at_5": false,
+      "hit_at_10": false,
+      "hit_at_20": true,
+      "rank_of_hit": 17,
+      "retrieval_time": 1.554
+    },
+    {
+      "query": "right to privacy fundamental right Article 21 nine judge bench",
+      "expected_case": "K.S. Puttaswamy vs Union of India",
+      "category": "constitutional_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 2,
+      "retrieval_time": 1.408
+    },
+    {
+      "query": "triple talaq instant divorce unconstitutional Muslim personal law",
+      "expected_case": "Shayara Bano vs Union of India",
+      "category": "personal_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.324
+    },
+    {
+      "query": "Section 304B IPC dowry death presumption",
+      "expected_case": "Shanti vs State of Haryana",
+      "category": "criminal_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.181
+    },
+    {
+      "query": "reservation in promotion consequential seniority Article 16",
+      "expected_case": "M. Nagaraj vs Union of India",
+      "category": "constitutional_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.091
+    },
+    {
+      "query": "Section 375 IPC definition of rape consent",
+      "expected_case": "Tukaram vs State of Maharashtra",
+      "category": "criminal_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 2,
+      "retrieval_time": 1.161
+    },
+    {
+      "query": "basic structure doctrine amendment power Article 368",
+      "expected_case": "Kesavananda Bharati vs State of Kerala",
+      "category": "constitutional_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.067
+    },
+    {
+      "query": "contempt of court freedom of speech and expression balance",
+      "expected_case": "E.M. Sankaran Namboodripad vs T. Narayanan Nambiar",
+      "category": "constitutional_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 2,
+      "retrieval_time": 1.917
+    },
+    {
+      "query": "Section 34 IPC common intention shared intention",
+      "expected_case": "Mehboob Shah vs Emperor",
+      "category": "criminal_law",
+      "hit_at_5": false,
+      "hit_at_10": false,
+      "hit_at_20": false,
+      "rank_of_hit": -1,
+      "retrieval_time": 1.485
+    },
+    {
+      "query": "Section 20 Prevention of Corruption Act trap recovery",
+      "expected_case": "State of Kerala vs C.P. Rao",
+      "category": "criminal_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.637
+    },
+    {
+      "query": "maintenance Section 125 CrPC wife children parents",
+      "expected_case": "Mohd. Ahmed Khan vs Shah Bano Begum",
+      "category": "personal_law",
+      "hit_at_5": false,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 10,
+      "retrieval_time": 1.221
+    },
+    {
+      "query": "Section 167 CrPC default bail 90 days 60 days",
+      "expected_case": "Bikramjit Singh vs State of Punjab",
+      "category": "criminal_procedure",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.42
+    },
+    {
+      "query": "Article 14 equality before law arbitrariness",
+      "expected_case": "E.P. Royappa vs State of Tamil Nadu",
+      "category": "constitutional_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.244
+    },
+    {
+      "query": "Section 482 CrPC inherent powers quashing FIR High Court",
+      "expected_case": "State of Haryana vs Bhajan Lal",
+      "category": "criminal_procedure",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 2.105
+    },
+    {
+      "query": "sexual harassment at workplace Vishaka guidelines",
+      "expected_case": "Vishaka vs State of Rajasthan",
+      "category": "constitutional_law",
+      "hit_at_5": false,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 6,
+      "retrieval_time": 0.339
+    },
+    {
+      "query": "Section 300 IPC murder exceptions culpable homicide not amounting to murder",
+      "expected_case": "Virsa Singh vs State of Punjab",
+      "category": "criminal_law",
+      "hit_at_5": true,
+      "hit_at_10": true,
+      "hit_at_20": true,
+      "rank_of_hit": 1,
+      "retrieval_time": 1.404
+    }
+  ]
+}

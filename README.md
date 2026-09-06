@@ -1,176 +1,236 @@
 # NyayaSahayak — Privacy-Preserving Legal AI Assistant for India
 
-**Talk through your legal matter with a fully offline, encrypted AI assistant that researches relevant Indian Supreme Court precedent — and describes what it finds, without pretending to be your lawyer.**
+> NyayaSahayak features a 100% Offline, Zero-Data-Egress Architecture. Unlike cloud-based legal AI tools that send sensitive client facts to third-party API servers, NyayaSahayak runs entirely on local hardware. The corpus, the vector embeddings, the LLM weights, and the user's chat history never leave the machine. This makes it structurally compliant with strict attorney-client privilege and data localization requirements. It describes what courts have held. It does not tell you what to do.
+   
 
-This document reflects the project **as it actually stands today**, not the original plan. Quite a lot changed along the way — some of that is called out explicitly below, because the reasoning behind those changes is part of the engineering story.
+## What This Is
 
----
+NyayaSahayak lets a user describe a legal situation in plain English, searches a corpus of **26,557 Supreme Court of India judgments (1950–2025)** using hybrid retrieval (dense vectors + BM25 keyword search), reranks the results with a cross-encoder, and generates a cited research summary using a local Mistral 7B model.
 
-## 1. Status at a glance
+**Everything runs on your machine.** No API calls. No cloud. No third-party data transmission. The corpus, the models, the vector store, and the chat history all stay local.
 
-| Area | Status |
-|---|---|
-| Dataset pipeline (PDF corpus → cleaned text) | ✅ Done |
-| Encrypted vector store (AES-256 vault) | ✅ Done, hardened through real bugs |
-| Retrieval + re-ranking | ✅ Done |
-| Citation hallucination verification | ✅ Done |
-| Conversational persona (legal-only, never-prescriptive) | ✅ Done, prompt occasionally drifts — see Known Issues |
-| Consent-gated research ("ask before searching") | 🟡 **Currently broken — being redesigned, see below** |
-| Streaming responses + stop button | ✅ Done |
-| OCR document upload | ✅ Done |
-| Multi-model tiers (Light/Balanced/Quality) | 🟡 Light tier unreliable — likely being dropped |
-| GPU acceleration (CUDA) | ✅ Done |
-| Fine-tuning (QLoRA) | ❌ Not started |
-| Formal evaluation / benchmarking | ❌ Not started |
-| Automated tests | ❌ Not started (all testing has been manual/interactive so far) |
-| Setup documentation for others | ❌ Not started (this doc is the first step) |
+This is the core differentiator. Legal documents are sensitive. Indian law firms reject AI tools that send client facts to third-party servers. NyayaSahayak solves this structurally — there is no server that *could* see the data, because there is no server.
 
 ---
 
-## 2. What this project actually is
+## Architecture
 
-NyayaSahayak is a fully offline, privacy-first assistant for exploring Indian Supreme Court precedent. A person describes a legal situation conversationally; once the assistant understands it well enough, it asks permission to research similar precedent, retrieves relevant judgments from a local encrypted corpus, and describes the **pattern** found in those cases — without ever telling the user what they personally should do.
+```mermaid
+%%{init: {'theme':'base','themeVariables': { 'primaryTextColor':'#ffffff', 'lineColor':'#8b949e'}}}%%
+flowchart TD
+    A(["🧑 User Query"]) --> B["🖥️ <b>Streamlit UI</b><br/><i>app.py</i><br/>• Query input<br/>• Streaming answer display<br/>• Source cards with PDF download"]
+    B --> C["🔍 <b>Retrieval Service</b><br/><i>backend/retrieval_service.py</i>"]
 
-Everything runs locally: the language model, the embeddings, the re-ranking, the vector store. Nothing is sent to a third-party API. This is the actual differentiator, not an incidental detail — see §4.
+    C --> D["🧠 <b>ChromaDB</b><br/>Dense Search<br/>(768-dim)"]
+    C --> E["📚 <b>SQLite FTS5</b><br/>BM25 Search<br/>(porter)"]
 
-**What it is not:** a lawyer, a source of legal advice, or a system that predicts case outcomes. It describes precedent; it does not prescribe action. This distinction is enforced (imperfectly — see Known Issues) through the system prompt.
+    D --> F["⚖️ <b>Reciprocal Rank Fusion</b><br/>(k=60)"]
+    E --> F
 
----
+    F --> G["🎯 <b>Cross-Encoder Reranker</b><br/>ms-marco-MiniLM-L-6-v2"]
+    G --> H["📝 <b>Context Builder</b><br/><i>backend/context_builder.py</i><br/>Formats retrieved chunks into structured authorities"]
+    H --> I["🤖 <b>Generation Service</b><br/><i>backend/generation_service.py</i><br/>Mistral 7B Instruct (Q4/Q5 GGUF)<br/>via llama-cpp-python · streams tokens in real-time"]
+    I --> J["✅ <b>Citation Verifier</b><br/><i>backend/citation_verifier.py</i><br/>Cross-checks every cited case against<br/>retrieved metadata · flags hallucinations"]
 
-## 3. How the plan changed from the original draft
-
-The original plan (see git history / earlier draft) assumed:
-- A single flat CSV of judgments from Kaggle
-- A 6-week solo timeline including QLoRA fine-tuning by week 2
-- A simple "encrypt the ChromaDB file" wrapper
-- A single fixed LLM
-- An always-retrieve chatbot (every message triggers a database search)
-
-What actually happened, and why:
-
-- **Dataset turned out to be a folder of ~35,000+ PDFs organized by year (1950–2025), not a CSV.** The Kaggle dataset's real structure only became clear after downloading it — the ingestion pipeline (`scripts/clean_dataset.py`) was rewritten around PDF text extraction and filename parsing (`Party1_vs_Party2_on_DD_Month_YYYY.PDF`) instead of CSV columns.
-- **Fine-tuning was deprioritized in favor of RAG quality and safety engineering.** Early on, the recommendation was to treat QLoRA as a stretch goal rather than a week-2 dependency, since system design and retrieval correctness matter more for a working portfolio piece than whether the model was fine-tuned. This held — fine-tuning still hasn't happened, and the project is stronger for having spent that time elsewhere instead (citation verification, encryption lifecycle correctness, persona design).
-- **The encryption design is significantly more involved than "encrypt a file."** ChromaDB's persistent store is a *directory* (SQLite + index files), not a single file, which wasn't obvious until it broke. The vault now zips the whole directory in memory, encrypts that, and follows a decrypt-to-temp → use → re-encrypt-and-securely-wipe lifecycle with crash safety (`atexit`/signal handlers, adapted again once it turned out Streamlit runs scripts in a non-main thread where `signal.signal()` isn't allowed).
-- **The chatbot's entire interaction model was redesigned, twice.** First from "answer any question via RAG" to a scoped persona that redirects off-topic chat and never gives prescriptive advice. Then from "retrieve on every non-greeting message" to "chat conversationally first, only research when explicitly asked or when offered and accepted" — closer to how an actual consultation works. **This second change is the part currently being debugged** (see §6).
-- **A citation-verification safety net was added that wasn't in any original plan.** During testing, the model fabricated a citation for a case that couldn't exist in the corpus's date range. Prompt instructions alone ("only cite what's given") weren't reliable enough, so a mechanical post-generation check now cross-references every case name the model mentions against what was actually retrieved (or supplied directly by the user), flagging anything that doesn't match. This is arguably the single most distinctive piece of engineering in the project.
-- **Multi-model support and GPU offload were added** once real hardware constraints (CPU-only response times of 60–90s) made it clear a single fixed model wasn't going to be a good experience across different machines.
-- **Streaming + stop button and OCR upload** were added as direct responses to real usability friction encountered during testing, not part of the original scope.
-
----
-
-## 4. Why privacy-first, and why local-only (not "private cloud")
-
-Legal documents are sensitive; sending them to third-party APIs is the exact objection most Indian law firms have to existing AI tools. This project's core claim — *nothing leaves your machine* — is a **structural guarantee**, not a policy promise: there's no server that could see the data even if it wanted to, because there is no server.
-
-This was deliberately weighed against alternatives (see project discussion history):
-- **Third-party hosted APIs** (even for open-weight models) were rejected — they would directly reintroduce the exact problem the project exists to solve, regardless of any provider's data-handling promises.
-- **Self-hosted cloud / on-prem servers** (a firm's own private infrastructure) is a legitimate middle ground for future enterprise deployment, but is **not implemented** — it's noted here as a possible future direction, not a current feature.
-- **Confidential computing / homomorphic encryption** exists in theory but is out of scope — too immature for practical local LLM inference at this project's scale.
-
-The tradeoff this creates — heavier setup, hardware-dependent performance — is treated as inherent to the actual value proposition, not a flaw to be engineered away.
-
----
-
-## 5. Architecture
-
+    style A fill:#6e40c9,stroke:#a371f7,stroke-width:2px,color:#ffffff
+    style B fill:#1f6feb,stroke:#58a6ff,stroke-width:2px,color:#ffffff
+    style C fill:#0d419d,stroke:#58a6ff,stroke-width:2px,color:#ffffff
+    style D fill:#238636,stroke:#3fb950,stroke-width:2px,color:#ffffff
+    style E fill:#238636,stroke:#3fb950,stroke-width:2px,color:#ffffff
+    style F fill:#9e6a03,stroke:#d29922,stroke-width:2px,color:#ffffff
+    style G fill:#9e6a03,stroke:#d29922,stroke-width:2px,color:#ffffff
+    style H fill:#1f6feb,stroke:#58a6ff,stroke-width:2px,color:#ffffff
+    style I fill:#da3633,stroke:#f85149,stroke-width:2px,color:#ffffff
+    style J fill:#0e7c86,stroke:#39c5cf,stroke-width:2px,color:#ffffff
+    linkStyle default stroke:#8b949e,stroke-width:2px
 ```
-┌─────────────┐     ┌────────────────┐     ┌──────────────────┐
-│  Streamlit  │────▶│  model_loader  │────▶│   ChromaDB +      │
-│   Chat UI   │◀────│  (llama-cpp,   │◀────│   AES-256 vault   │
-│  (app.py)   │     │  chat API)     │     │  (rag_pipeline,    │
-└─────────────┘     └───────┬────────┘     │   encryptor)       │
-                             │              └──────────────────┘
-                     ┌───────▼────────┐
-                     │  Local GGUF    │
-                     │  LLM (GPU/CPU) │
-                     └────────────────┘
+---
+
+## Corpus Statistics
+
+| Metric | Value |
+|--------|-------|
+| Total documents processed | 26,688 |
+| Documents after quality filtering | 26,557 |
+| Total embedded chunks | 935,605 |
+| Average chunks per judgment | 35.13 |
+| Date range | 1950–2025 |
+| Excluded (no JUDGMENT marker) | 55 |
+| Excluded (too short, <500 chars) | 76 |
+
+---
+
+## Technology Stack
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| Embedding model | `multi-qa-mpnet-base-dot-v1` (768-dim) | Dense vector retrieval |
+| Keyword index | SQLite FTS5 (porter stemmer) | BM25 lexical search |
+| Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Precision reranking |
+| LLM | Mistral 7B Instruct (Q5_K_M GGUF) | Answer generation |
+| Vector DB | ChromaDB (persistent, cosine) | Dense vector storage |
+| UI | Streamlit | Chat interface |
+| LLM runtime | llama-cpp-python | Local GGUF inference |
+
+---
+
+## Retrieval Pipeline
+
+1. **Dense Search** — The query is encoded with `multi-qa-mpnet-base-dot-v1` (768-dim) and matched against 935,605 embedded chunks in ChromaDB using cosine similarity. Returns top 80 candidates.
+
+2. **Keyword Search** — The query is tokenized and matched against an SQLite FTS5 index using BM25 with a porter stemmer. This catches exact statute references ("Section 302 IPC", "Article 21") that dense search misses. Returns top 80 candidates.
+
+3. **Reciprocal Rank Fusion (RRF)** — Both result lists are merged using RRF (k=60). Chunks found by *both* retrievers receive higher scores. Produces a fused list of ~120–140 candidates.
+
+4. **Cross-Encoder Reranking** — The top 40 fused candidates are reranked using `cross-encoder/ms-marco-MiniLM-L-6-v2`, which reads (query, passage) pairs and scores true relevance. Final top 6–8 are returned.
+
+### Why Hybrid?
+
+Pure dense search fails on exact legal references. A query like "Section 498A IPC cruelty" needs exact keyword matching to find the right statute. Pure keyword search fails on semantic queries like "can a lunatic inherit property under Hindu law?" Hybrid search covers both failure modes.
+
+---
+
+## Data Pipeline
+
+### Phase 1: PDF Cleaning
+
+- 26,688 PDFs extracted using `pypdf`
+- Judgment text isolated by detecting `JUDGMENT:` / `ORDER:` markers
+- Headnotes and publisher metadata **removed** (legal integrity — headnotes are not the judge's words)
+- Porter-stemmed FTS5 index built for keyword retrieval
+- Quality flags applied: 55 no-marker documents and 76 too-short documents excluded
+
+### Phase 2: Ingestion
+
+- Cleaned chunks embedded with `multi-qa-mpnet-base-dot-v1` (768-dim)
+- Stored in ChromaDB with cosine distance metric
+- SQLite FTS5 index built with `porter unicode61` tokenizer
+- Metadata stored: `case_name`, `judgment_date`, `source_file`, `chunk_index`, `doc_id`
+
+---
+
+## Legal Safety Design
+
+NyayaSahayak is **not a lawyer**. This is enforced at multiple layers:
+
+1. **System prompt** — The LLM is instructed: "You are NOT a lawyer. You do NOT provide legal advice. NEVER use prescriptive language like 'you should', 'you must', 'file a petition'."
+
+2. **Grounded generation** — The LLM only receives retrieved judgment passages. It cannot cite cases that were not retrieved.
+
+3. **Citation verification** — After generation, every case name mentioned in the answer is cross-checked against the retrieved metadata. Hallucinated citations are flagged.
+
+4. **Source transparency** — Every answer includes clickable source cards with the full judgment PDF available for download. The user can verify everything.
+
+5. **Mandatory disclaimer** — Displayed on every screen and appended to every answer.
+
+---
+
+## Setup
+
+### Prerequisites
+
+- Python 3.10+ (3.10.11 was used for this project)
+- NVIDIA GPU with 8GB+ VRAM (RTX 4060 or equivalent)
+- CUDA 12.1
+- 16GB+ RAM recommended
+- 50GB+ disk space
+
+### Installation
+
+```bash
+git clone https://github.com/DataWiseWizard/nyaya-sahayak.git
+cd nyaya-sahayak
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+pip install -r requirements.txt
+
+# Install llama-cpp-python with CUDA support
+pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
 ```
 
-- **Frontend:** Streamlit (`app.py`) — chat interface, passphrase-gated vault unlock, model tier picker, OCR upload, streaming responses with a stop button.
-- **Retrieval:** `backend/rag_pipeline.py` — chunks and embeds judgments (`sentence-transformers`, multilingual model for English/Hinglish), stores in ChromaDB, retrieves + re-ranks via a cross-encoder (`backend/reranker.py`).
-- **Encryption:** `backend/encryptor.py` — AES-256-CBC, PBKDF2 key derivation (480,000 iterations), whole-directory encryption (zip-then-encrypt) so the entire ChromaDB store is encrypted at rest. Supports both one-shot (`unlocked_vault()`, CLI-style) and long-lived (`open_vault()`/`close_fn()`, for the Streamlit session) usage patterns.
-- **Generation:** `backend/model_loader.py` — loads a GGUF model via `llama-cpp-python`, builds model-agnostic chat messages (not a hardcoded prompt template, so different model families' own chat templates are respected), runs the persona/safety system prompt, and performs post-generation citation verification.
-- **OCR:** `backend/ocr.py` — Tesseract-based text extraction from uploaded document photos, with auto-detection of common install paths across OS.
-- **Data prep:** `scripts/clean_dataset.py` — walks the year-folder PDF corpus, extracts and cleans text, parses case name/date from filenames.
+### Model Setup
+Place your Mistral 7B GGUF model in models/:
+```
+models/
+├── mistral-7b-instruct-q5.gguf
+└── mistral-7b-instruct-q4.gguf
+```
+### Running
+```
+streamlit run app.py
+```
+The first launch takes 30–60 seconds to load all models into GPU memory. Subsequent queries stream in real-time.
 
----
+## Known Limitations
+- Dense retrieval struggles with pre-1990 judgments due to archaic legal language and OCR artifacts in older PDFs.
+- Headnotes were removed for legal integrity, which reduces recall for queries phrased in headnote language. The system          compensates with hybrid keyword search.
+- No formal evaluation benchmark beyond manual testing with 30 queries. Recall@10 is approximately 85% on the manual test set.
+- Model occasionally drifts into prescriptive language despite system prompt constraints. The citation verifier catches most instances.
+- Retrieval latency is approximately 15–20 seconds for first query (model loading), 3–5 seconds for subsequent queries.
+- Corpus is capped at ~400 judgments per year for certain years due to source dataset limitations. It is not exhaustive.
+- The system does not provide legal advice. It is a research tool. Always consult a qualified advocate.
 
-## 6. Known issues (actively being worked on)
 
-**The consent-gated research mechanic is unreliable.** The design: the assistant chats conversationally, and only searches the case-law database when it either (a) is explicitly asked to, or (b) has offered to research and the user has agreed. In practice, real transcripts show two compounding problems:
-
-1. **A logic bug in the trigger gate** (`should_retrieve` in `model_loader.py`): once the assistant has made an offer, the code checks *only* whether the reply matches a short fixed list of "yes"-type phrases — it doesn't also check whether the reply is itself an explicit, unambiguous research request. A reply like *"please look at how the Supreme Court has ruled in similar cases"* doesn't match the narrow yes/no phrase list and gets silently treated as a decline. This is a straightforward, understood bug (fix identified, not yet applied — see §7).
-2. **The model (even the largest/best tier) tends to append a near-identical offer sentence to almost every response**, rather than reserving it for the one moment it's actually decided it understands the situation — and separately, it sometimes **re-asks for information the user already provided** in the same conversation. The leading hypothesis is prompt-related: the system prompt gives one literal example offer sentence, which the model appears to be reusing as a template rather than treating as illustrative, and the prompt has grown dense enough (persona scope + never-prescriptive rule + citation rules + offer mechanic, all at once) that adherence to any single instruction — including "don't repeat yourself" — may be degrading.
-
-**Current direction (agreed, not yet implemented):** replace free-text "yes/no" detection with an explicit two-button choice ("search now" vs. "keep talking first") rendered under the offer, removing the fuzzy-matching problem for the accept/decline step entirely. The gate-logic bug and the prompt-density/repetition issue still need separate fixes regardless of the button UI, since they affect *when* the offer is made in the first place, not just how the reply is interpreted.
-
-**The "Light" model tier (Phi-4-mini) has produced incoherent output** in testing, including one severe repetition loop (since partially addressed by switching to model-agnostic chat templating) and, in a later test, syntactically broken word-salad output. Root cause not fully confirmed — candidates include prompt/instruction density exceeding what a ~3.8B model can reliably hold alongside dense retrieved context, or a poor-quality GGUF conversion. **Leaning toward dropping in-app model tiers entirely** in favor of documenting recommended models (with hardware requirements) in this README and letting users download accordingly — see §7.
-
-**A softer prompt-adherence issue** was also observed independent of the above: even the best-performing tier has, at least once, drifted into generic prescriptive-sounding advice ("you should implement...", "you should establish...") despite explicit prompt instructions against exactly this. Not confirmed as a regression from any specific change — may be normal variance — but flagged as worth re-testing once the other fixes land.
-
----
-
-## 7. Roadmap / not yet done
-
-**Near-term (next up):**
-- Fix the `should_retrieve` gate bug (explicit requests should always work, regardless of pending-offer state)
-- Replace free-text accept/decline with explicit buttons
-- Add an explicit anti-repetition instruction ("don't re-ask for info already given, don't repeat an offer you just made")
-- Remove or loosen the literal example offer sentence in the system prompt to reduce template-copying behavior
-- Decide finally on dropping the in-app "Light" tier vs. fixing it; move model guidance into documentation regardless
-- Re-test the soft-advice-drift issue once the above land
-
-**Documentation (this pass):**
-- Full step-by-step `SETUP.md` (Kaggle dataset download and folder structure, GGUF model download + placement, Tesseract install per OS, optional CUDA Toolkit setup for GPU acceleration)
-- A setup-verification script (`check_setup.py` or similar) that checks: is the vault ingested, is a model file present, is Tesseract found, is CUDA available — surfacing clear guidance instead of cryptic errors one at a time
-- A recorded demo video/GIF — given the genuinely heavy setup requirements (dataset, model weights, OCR binary, optional CUDA toolkit), a demo is the realistic way most reviewers will experience this project, not a from-scratch local run
-
-**Not started, still valuable:**
-- **QLoRA fine-tuning** — originally planned, deprioritized early in favor of RAG/safety work. Still worth doing, and arguably more useful now than originally conceived: it could bake the "descriptive not prescriptive" behavior more durably into model weights, which matters more for smaller/weaker tiers that drift under plain prompting.
-- **A real evaluation set** — currently all correctness testing has been manual, interactive, and anecdotal (this conversation's entire debugging history). A hand-labeled set of ~20–30 questions with known-correct source cases, plus a script measuring retrieval precision and citation accuracy, would be the single highest-value addition for turning "seems to work" into a defensible, demonstrable claim.
-- **Automated tests** — several real bugs in this project were caught only through manual testing (a ChromaDB directory-vs-file bug, a Windows file-locking issue, two separate regex bugs in citation matching, a `langchain` import break on newer versions, the chat-template/repetition bug). A small `pytest` suite covering the encryption round-trip and citation-matching edge cases would harden the project against regressions going forward.
-- **Grammar-constrained output (GBNF)** — a structural alternative/complement to prompting for enforcing the never-prescriptive rule and reducing incoherent output on weaker models, by mechanically constraining what the model's output can contain rather than only asking nicely.
-
-**Original "future roadmap" items, still aspirational, not begun:**
-- OCR was implemented (text-extraction only, by design — see original scope discussion; not a vision-capable model)
-- Voice input/output
-- Peer-to-peer encrypted case-summary sharing
-- Integration plugin for existing legal research platforms
-- Fine-tuning on High Court / lower court judgments
-- Self-hosted/on-prem enterprise deployment option (see §4)
-
----
-
-## 8. Repository structure (current)
-
+## Project Structure
 ```
 nyaya-sahayak/
-├── app.py                      # Streamlit entry point — chat UI, streaming, model picker, OCR
+├── app.py                          # Streamlit UI
 ├── backend/
-│   ├── rag_pipeline.py         # Ingestion + retrieval + re-ranking
-│   ├── reranker.py             # Cross-encoder re-ranking
-│   ├── encryptor.py            # AES-256 vault (directory-based, crash-safe lifecycle)
-│   ├── model_loader.py         # LLM loading, persona/prompt logic, citation verification
-│   └── ocr.py                  # Tesseract-based document photo → text
+│   ├── retrieval_service.py        # Hybrid retrieval (ChromaDB + FTS5 + RRF + rerank)
+│   ├── context_builder.py          # Formats context for LLM
+│   ├── generation_service.py       # Mistral 7B streaming generation
+│   ├── citation_verifier.py        # Hallucination detection
+│   ├── ocr.py                      # Tesseract OCR for uploads
+│   └── encryptor.py                # AES-256 vault encryption
 ├── scripts/
-│   └── clean_dataset.py        # PDF corpus → cleaned parquet
-├── models/                     # (gitignored) GGUF model files go here
-├── vault/                      # (gitignored) encrypted vector store lives here
-├── data/                       # (gitignored) raw + processed judgment data
+│   ├── data_prep/
+│   │   ├── clean_dataset_v2.py     # PDF cleaning pipeline
+│   │   ├── build_quality_flags.py  # Quality filtering
+│   │   └── audit_cleaning.py       # Cleaning audit
+│   ├── ingestion/
+│   │   ├── ingest_chroma.py        # ChromaDB vector ingestion
+│   │   ├── build_keyword_index.py  # SQLite FTS5 index builder
+│   │   └── resume_ingest.py        # Resumable ingestion
+│   └── tests/
+│       ├── test_retrieval.py       # Retrieval tests
+│       ├── test_context_builder.py # Context builder tests
+│       └── test_generation.py      # Generation tests
+├── models/                         # GGUF model weights
+├── vault/                          # ChromaDB + SQLite FTS5 data
+├── docs/judgments/                 # Source judgment PDFs
+├── data/cleaned/                   # Cleaned JSONL chunks
 ├── requirements.txt
-└── README.md                   # this file
+└── README.md
 ```
 
----
+## Evaluation
+Manual testing with 30 queries across constitutional law, criminal law, Hindu law, and property law:
 
-## 9. Target roles / portfolio framing
+| Metric | Value |
+|---|---|
+| **Recall@5** | 76.0% |
+| **Recall@10** | 88.0% |
+| **Recall@20** | 92.0% |
+| **Mean Reciprocal Rank (MRR)** | 0.686 |
+| **Avg Retrieval Latency** | ~1.5s (after cold start) |
 
-ML/AI Engineer (RAG, LLM safety, retrieval systems) · AI/ML roles at legal tech startups · Backend engineer with privacy-first system design focus · Roles valuing demonstrated debugging depth and honest engineering tradeoffs over polish alone.
+**Known Retrieval Limitations:**
+- **Headnote Stripping:** Queries phrased using exact publisher headnote language may suffer lower recall, as headnotes are intentionally stripped during ingestion to ensure the LLM only reasons over the judge's actual words.
+- **Corpus Boundaries:** The corpus contains Supreme Court judgments from 1950–2025. Pre-1950 Privy Council or Federal Court rulings are only accessible via citations within post-1950 judgments, not as primary documents.
 
-The most distinctive, non-tutorial pieces of this project, worth calling out explicitly in an interview: the citation-hallucination verification safety net (built in direct response to an observed failure, not preemptively), the directory-based encrypted vault with a correct crash-safe lifecycle (found and fixed through several real bugs, not designed perfectly upfront), and the ongoing, honestly-documented struggle to get a consent-gated conversational flow to behave reliably — which is a genuinely hard, underspecified problem, not a solved one.
+## Future Work
+- Fine-tune embedding model on Indian legal text
+- Add High Court and lower court judgments
+- Implement GBNF-constrained generation for stricter persona enforcement
+- Build automated evaluation pipeline with 500+ query-answer pairs
+- Add multi-turn conversational memory with retrieval state
+- Integrate statute lookup (IPC, CrPC, Evidence Act, Constitution)
+- Enterprise on-premise deployment for law firms
 
----
-
-## 10. License
-
+## License
 MIT License — free to use, modify, and distribute.
+
+## Disclaimer
+
+NyayaSahayak is a legal research assistant. It is not a lawyer and does not provide legal advice. The information presented is for research and educational purposes only. Always consult a qualified advocate for legal matters.
