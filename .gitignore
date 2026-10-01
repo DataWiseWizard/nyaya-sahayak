@@ -1,3 +1,6 @@
+Documentation.docx
+READMEOLDVERSION.md
+
 venv/
 
 vault/
@@ -15,3 +18,4 @@ docs/
 __pycache__/
 
 .pytest_cache/
+
