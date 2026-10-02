@@ -85,19 +85,27 @@ def load_generator(model_filename: str) -> GenerationService:
 # ---------------------------------------------------------------------------
 def find_judgment_pdf(source_file: str) -> Path | None:
     """
-    Searches for the judgment PDF in the docs/judgments directory.
+    Searches for the judgment PDF in multiple locations.
     Returns the Path if found, None otherwise.
     """
     if not source_file or source_file == "Unknown":
         return None
 
-    pdf_path = PDF_DIR / source_file
-    if pdf_path.exists():
-        return pdf_path
+    # Search order: docs/judgments/ → demo_pdfs/ → data/raw/
+    search_dirs = [
+        PROJECT_ROOT / "docs" / "judgments",
+        PROJECT_ROOT / "demo_pdfs",
+        PROJECT_ROOT / "data" / "raw",
+    ]
 
-    # Try case-insensitive search
-    if PDF_DIR.exists():
-        for f in PDF_DIR.iterdir():
+    for search_dir in search_dirs:
+        if not search_dir.exists():
+            continue
+        pdf_path = search_dir / source_file
+        if pdf_path.exists():
+            return pdf_path
+        # Case-insensitive fallback
+        for f in search_dir.iterdir():
             if f.name.lower() == source_file.lower():
                 return f
 
@@ -290,9 +298,9 @@ def main():
                                 use_container_width=True,
                             )
                         else:
-                            st.warning("Could not read PDF file.")
+                            st.warning("⚠️ Could not read PDF file.")
                     else:
-                        st.warning("PDF not found in docs/judgments/")
+                        st.caption("📄 Full PDF not available locally.")
 
         st.divider()
         st.info(DISCLAIMER)

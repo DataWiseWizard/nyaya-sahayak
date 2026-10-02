@@ -142,22 +142,42 @@ git clone https://github.com/DataWiseWizard/nyaya-sahayak.git
 cd nyaya-sahayak
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
+```
 
+## 📦 Pre-Built Asset Downloads
+
+To skip building the vault and downloading models manually, download the pre-built assets below. All assets are open-weight/open-data and free for research use.
+
+| Asset | Size | Description |
+|-------|------|-------------|
+| Models Bundle | ~10 GB | Mistral 7B Q4_K_M + Q5_K_M GGUF |
+| Vault Bundle | ~5 GB | Pre-built ChromaDB + SQLite FTS5 index |
+| **Demo PDFs** | **~20 MB** | **30 judgment PDFs for eval & demo** |
+| Full Corpus PDFs | ~20 GB | All 26,557 judgment PDFs (optional) |
+| Checksums | 1 KB | SHA-256 hashes for integrity verification |
+
+> Google Drive Download link:- https://drive.google.com/drive/folders/1YoxwDNZ_NML7sfPAeLhB8jDWXbdPtfYY?usp=sharing.
+
+> ⚡ **Quick Start (< 5 minutes):** Download Models + Vault + Demo PDFs only.
+> You will have a fully working legal research assistant with downloadable judgments.
+
+### Quick Start with Bundles
+
+```bash
+# 1. Extract models
+# Place mistral-7b-instruct-q5.gguf and q4.gguf into models/
+
+# 2. Extract vault
+# Place chroma/ folder and nyaya_keyword_porter.db into vault/
+
+# 3. Extract demo PDFs
+# Place all PDFs into docs/judgments/
+
+# 4. Install dependencies
 pip install -r requirements.txt
-
-# Install llama-cpp-python with CUDA support
 pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
-```
 
-### Model Setup
-Place your Mistral 7B GGUF model in models/:
-```
-models/
-├── mistral-7b-instruct-q5.gguf
-└── mistral-7b-instruct-q4.gguf
-```
-### Running
-```
+# 5. Run
 streamlit run app.py
 ```
 The first launch takes 30–60 seconds to load all models into GPU memory. Subsequent queries stream in real-time.
