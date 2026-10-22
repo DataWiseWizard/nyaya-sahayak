@@ -5,6 +5,7 @@ Run with: pytest scripts/tests/test_core.py -v
 
 import sys
 from pathlib import Path
+import pytest 
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -102,7 +103,7 @@ class TestCitationVerifier:
         verified = verify_citations(generated_text, authorities)
         assert len(verified) == 0
 
-
+@pytest.mark.integration
 class TestRetrievalService:
     # Tests for the retrieval service.
 

@@ -1,0 +1,68 @@
+📦 nyaya-sahayak/
+├── .vault_session
+│   ├── 26bb7c9a-6f29-456d-80b8-ed85c5394f33
+│   │   ├── data_level0.bin
+│   │   ├── header.bin
+│   │   ├── index_metadata.pickle
+│   │   ├── length.bin
+│   │   └── link_lists.bin
+│   └── chroma.sqlite3
+├── .vscode
+│   └── settings.json
+├── backend
+│   ├── citation_verifier.py
+│   ├── context_builder.py
+│   ├── encryptor.py
+│   ├── generation_service.py
+│   ├── ocr.py
+│   └── retrieval_service.py
+├── data
+│   ├── cleaned
+│   │   ├── audit
+│   │   │   ├── no_marker_documents.jsonl
+│   │   │   ├── short_documents.jsonl
+│   │   │   └── summary.json
+│   │   ├── judgment_chunks.jsonl
+│   │   ├── judgments_metadata.jsonl
+│   │   └── quality_flags.jsonl
+│   └── processed
+│       └── judgments_clean.parquet
+├── docker
+│   ├── .github
+│   │   └── workflows
+│   │       └── ci.yml
+│   ├── .dockerignore
+│   ├── .ruff.toml
+│   ├── docker-compose.gpu.yml
+│   ├── DockerFile
+│   ├── entrypoint.sh
+│   ├── Makefile
+│   └── pytest.ini
+├── models
+│   ├── mistral-7b-instruct-q5.gguf
+│   └── mistral-7b-instruct.gguf
+├── scripts
+│   ├── data_prep
+│   │   ├── audit_cleaning.py
+│   │   ├── build_quality_flags.py
+│   │   └── clean_dataset_v2.py
+│   ├── ingestion
+│   │   ├── build_keyword_index.py
+│   │   ├── ingest_chroma.py
+│   │   └── resume_ingest.py
+│   ├── tests
+│   │   ├── eval_dataset.jsonl
+│   │   ├── eval_results.json
+│   │   ├── run_evaluation.py
+│   │   ├── test_context_builder.py
+│   │   ├── test_core.py
+│   │   ├── test_generation.py
+│   │   └── test_retrieval.py
+│   ├── generate_structure.py
+│   └── prepare_demo_bundle.py
+├── .gitignore
+├── .python-version
+├── app.py
+├── project_structure.txt
+├── README.md
+└── requirements.txt

@@ -1,0 +1,36 @@
+name: Build and Test Docker Image
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: nyaya-sahayak:ci-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Pytest inside Container (CPU only for CI)
+        run: |
+          docker run --rm \
+            -e NYAYA_MODE=api \
+            -e NYAYA_DEVICE=cpu \
+            --entrypoint python \
+            nyaya-sahayak:ci-test \
+            -m pytest scripts/tests/test_core.py -v

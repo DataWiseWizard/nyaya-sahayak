@@ -1,0 +1,20 @@
+target-version = "py310"
+line-length = 100
+
+exclude = [
+    "venv", ".venv", "vault", "models", "data", "docs",
+    "__pycache__", ".pytest_cache", ".ruff_cache",
+]
+
+[lint]
+# Keep it light for the initial CI — catch real bugs, not style nits.
+select = ["E9", "F"]
+ignore = [
+    "E501",   # line-too-long — too noisy for this codebase
+    "F401",   # unused-import — defer to Week 3 cleanup
+]
+
+[lint.per-file-ignores]
+"app.py"                = ["E402"]   # sys.path.insert then imports
+"scripts/**/*.py"       = ["E402"]
+"backend/**/*.py"       = ["E402"]

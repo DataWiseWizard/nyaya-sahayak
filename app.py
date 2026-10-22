@@ -1,27 +1,21 @@
-#!/usr/bin/env python3
-"""
-app.py
-
-NyayaSahayak — Privacy-Preserving Legal AI Assistant for India
-Streamlit UI
-
-This app:
-1. Accepts a legal query from the user.
-2. Retrieves relevant Supreme Court judgments using hybrid search.
-3. Streams an LLM-generated research summary token-by-token.
-4. Displays verified sources with full judgment PDF download access.
-"""
-
 import os
 import sys
 import time
 from pathlib import Path
 
 import streamlit as st
+import torch
 
-# ---------------------------------------------------------------------------
-# Ensure backend modules are importable
-# ---------------------------------------------------------------------------
+
+def _detect_device() -> str:
+    explicit = os.environ.get("NYAYA_DEVICE", "auto").strip().lower()
+    if explicit in ("cpu", "cuda"):
+        return explicit
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+NYAYA_DEVICE = _detect_device()
+
 PROJECT_ROOT = Path(__file__).parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -30,9 +24,6 @@ from backend.context_builder import build_messages
 from backend.generation_service import GenerationService, GenerationConfig
 from backend.citation_verifier import verify_citations
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
 PDF_DIR = PROJECT_ROOT / "docs" / "judgments"
 MODELS_DIR = PROJECT_ROOT / "models"
 
@@ -49,16 +40,13 @@ DISCLAIMER = (
 )
 
 
-# ---------------------------------------------------------------------------
-# Cached resource loaders
-# ---------------------------------------------------------------------------
 @st.cache_resource(show_spinner="Loading retrieval models...")
 def load_retriever() -> HybridRetriever:
     config = RetrievalConfig(
         vault_dir=str(PROJECT_ROOT / "vault"),
         collection_name="nyaya_sahayak_v1",
         keyword_db_path=str(PROJECT_ROOT / "vault" / "nyaya_keyword_porter.db"),
-        device="cuda",
+        device=NYAYA_DEVICE,
     )
     return HybridRetriever(config).load()
 
@@ -71,7 +59,7 @@ def load_generator(model_filename: str) -> GenerationService:
 
     config = GenerationConfig(
         model_path=str(model_path),
-        n_gpu_layers=-1,
+        n_gpu_layers=-1 if NYAYA_DEVICE == "cuda" else 0,
         n_ctx=8192,
         max_tokens=1024,
         temperature=0.1,

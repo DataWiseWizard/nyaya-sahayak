@@ -1,0 +1,25 @@
+services:
+  nyaya-sahayak:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nyaya-sahayak:local
+    container_name: nyaya-sahayak
+    environment:
+      NYAYA_MODE: streamlit
+      NYAYA_DEVICE: ${NYAYA_DEVICE:-auto}
+    ports:
+      - "8501:8501"
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+      - ./vault:/app/vault
+      - ./docs/judgments:/app/docs/judgments:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
